@@ -1,0 +1,43 @@
+name: Update Sorcery card data
+
+on:
+  schedule:
+    # Run once per day at approximately 03:17 UTC
+    - cron: "17 3 * * *"
+
+  # Also gives us a button for running it manually
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Update card data
+        run: python scripts/update-cards.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "sorcery-data-bot"
+          git config user.email "sorcery-data-bot@users.noreply.github.com"
+
+          git add cards.json cards-meta.json
+
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+            exit 0
+          fi
+
+          git commit -m "Update Sorcery card data"
+          git push
