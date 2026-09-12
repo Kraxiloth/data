@@ -45,6 +45,43 @@ function New-RequestBody([int]$Offset) {
     } | ConvertTo-Json -Depth 10
 }
 
+function Invoke-TcgRequest([int]$Offset) {
+    $maximumAttempts = 5
+    $retryDelays = @(10, 30, 60, 120)
+
+    for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+        try {
+            return Invoke-RestMethod `
+                -Uri $ApiUrl `
+                -Method Post `
+                -Headers $headers `
+                -Body (New-RequestBody $Offset) `
+                -TimeoutSec 60
+        }
+        catch {
+            $statusCode = $null
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+            }
+
+            $transient = (
+                $null -eq $statusCode -or
+                $statusCode -eq 429 -or
+                $statusCode -ge 500
+            )
+
+            if (-not $transient -or $attempt -eq $maximumAttempts) {
+                throw
+            }
+
+            $delay = $retryDelays[$attempt - 1]
+            $statusText = if ($null -eq $statusCode) { "network error" } else { "HTTP $statusCode" }
+            Write-Warning "$statusText at offset $Offset. Attempt $attempt of $maximumAttempts failed; retrying in $delay seconds."
+            Start-Sleep -Seconds $delay
+        }
+    }
+}
+
 Write-Host "Loading canonical card catalogue..."
 $cards = Get-Content $CardsPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if (-not $cards -or $cards.Count -eq 0) {
@@ -91,13 +128,13 @@ foreach ($entry in $tokenAliases.GetEnumerator()) {
 
 Write-Host "Fetching TCGPlayer products..."
 $headers = @{ Accept = "application/json"; "Content-Type" = "application/json" }
-$response = Invoke-RestMethod -Uri $ApiUrl -Method Post -Headers $headers -Body (New-RequestBody 0)
+$response = Invoke-TcgRequest 0
 $total = [int]$response.results.totalResults
 $products = @($response.results.results)
 
 for ($offset = $PageSize; $offset -lt $total; $offset += $PageSize) {
     Write-Host "Fetching products $offset through $([Math]::Min($offset + $PageSize, $total)) of $total..."
-    $response = Invoke-RestMethod -Uri $ApiUrl -Method Post -Headers $headers -Body (New-RequestBody $offset)
+    $response = Invoke-TcgRequest $offset
     $products += @($response.results.results)
     Start-Sleep -Milliseconds 500
 }
