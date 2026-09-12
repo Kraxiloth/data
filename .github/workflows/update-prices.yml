@@ -42,4 +42,4 @@ jobs:
             git push
           } else {
             Write-Host "Nothing changed."
-          fi
+          }
