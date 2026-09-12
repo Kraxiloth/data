@@ -190,30 +190,36 @@ foreach ($card in $cards) {
         $value = $prices[$printing.slug]
         if (-not $value) { continue }
 
-        $printingCopy = [ordered]@{}
-        foreach ($property in $printing.PSObject.Properties) {
-            $printingCopy[$property.Name] = $property.Value
-        }
-        $printingCopy["price"] = [ordered]@{
-            market = $value.market
-            low = $value.low
-            currency = "USD"
+        $printingCopy = [ordered]@{
+            id = $printing.id
+            slug = $printing.slug
+            set = [ordered]@{
+                name = $printing.set.name
+                code = $printing.set.code
+            }
+            meta = [ordered]@{
+                finish = $printing.meta.finish
+            }
+            price = [ordered]@{
+                market = $value.market
+                low = $value.low
+                currency = "USD"
+            }
         }
         $pricedPrintings += $printingCopy
     }
 
     if ($pricedPrintings.Count -eq 0) { continue }
 
-    $cardCopy = [ordered]@{}
-    foreach ($property in $card.PSObject.Properties) {
-        if ($property.Name -ne "printings") {
-            $cardCopy[$property.Name] = $property.Value
-        }
+    $cardCopy = [ordered]@{
+        id = $card.id
+        name = $card.name
+        slug = $card.slug
+        printings = $pricedPrintings
     }
-    $cardCopy["printings"] = $pricedPrintings
     $pricedCards += $cardCopy
 }
 
-$json = ($pricedCards | ConvertTo-Json -Depth 12) + [Environment]::NewLine
+$json = ($pricedCards | ConvertTo-Json -Depth 12 -Compress) + [Environment]::NewLine
 [IO.File]::WriteAllText($PricesPath, $json, (New-Object Text.UTF8Encoding $false))
 Write-Host "Published $($prices.Count) priced printings across $($pricedCards.Count) cards; $unmatched products unmatched."
