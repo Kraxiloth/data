@@ -1,1 +1,53 @@
+/* Sorcery.no default dark theme - v1 */
+:root,
+:root[data-theme="sorcery"] {
+  color-scheme: dark;
 
+  --sorcery-bg: #111315;
+  --sorcery-surface: #191c20;
+  --sorcery-surface-raised: #20242a;
+  --sorcery-surface-subtle: #17191c;
+  --sorcery-surface-hover: #1e2125;
+  --sorcery-surface-active: #27241e;
+  --sorcery-surface-selected: #24282e;
+  --sorcery-header-bg: rgb(18 20 22 / 0.95);
+
+  --sorcery-text: #eee8dc;
+  --sorcery-text-muted: #aaa49a;
+  --sorcery-text-subtle: #777;
+  --sorcery-text-accent: #f3dfb7;
+
+  --sorcery-border: #34383e;
+  --sorcery-border-subtle: #2b2e33;
+  --sorcery-border-hover: #777;
+  --sorcery-border-accent: #8e7444;
+
+  --sorcery-accent: #c6a15b;
+  --sorcery-accent-hover: #d2b36f;
+  --sorcery-accent-subtle: #27241e;
+
+  --sorcery-success: #77ad78;
+  --sorcery-success-text: #9cc49d;
+  --sorcery-success-surface: #223126;
+  --sorcery-success-border: #6d916d;
+  --sorcery-success-border-subtle: #426348;
+  --sorcery-success-text-strong: #dcebdc;
+
+  --sorcery-warning: #d2a34a;
+  --sorcery-warning-surface: #1b1d1f;
+  --sorcery-warning-border: #51452f;
+  --sorcery-warning-border-strong: #735e3d;
+
+  --sorcery-danger: #c96f72;
+  --sorcery-danger-text: #d7a0a0;
+  --sorcery-danger-surface: #342222;
+  --sorcery-danger-border: #9a6262;
+  --sorcery-danger-text-strong: #f0d6d6;
+
+  --sorcery-info: #7899bd;
+  --sorcery-focus: #d7b66d;
+  --sorcery-backdrop: rgb(0 0 0 / 0.67);
+  --sorcery-backdrop-strong: rgb(0 0 0 / 0.87);
+  --sorcery-shadow-color: rgb(0 0 0 / 0.53);
+  --sorcery-shadow-color-strong: rgb(0 0 0 / 0.73);
+}
