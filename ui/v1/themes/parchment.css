@@ -1,0 +1,63 @@
+/* Sorcery.no parchment theme - v1 */
+:root[data-theme="parchment"] {
+  color-scheme: light;
+
+  --sorcery-bg: #d9c69e;
+  --sorcery-surface: #ead9b5;
+  --sorcery-surface-raised: #dfcba3;
+  --sorcery-surface-subtle: #e4d1ab;
+  --sorcery-surface-hover: #d8c296;
+  --sorcery-surface-active: #d2b981;
+  --sorcery-surface-selected: #cbb17b;
+  --sorcery-surface-emphasis: #d1b985;
+  --sorcery-surface-inset: #cbb788;
+  --sorcery-header-bg: rgb(228 209 171 / 0.95);
+
+  --sorcery-text: #312719;
+  --sorcery-text-muted: #665743;
+  --sorcery-text-subtle: #78674e;
+  --sorcery-text-accent: #4d3515;
+  --sorcery-text-secondary: #51432f;
+
+  --sorcery-border: #a88d5e;
+  --sorcery-border-subtle: #baa274;
+  --sorcery-border-hover: #765e39;
+  --sorcery-border-accent: #80612e;
+
+  --sorcery-accent: #704a12;
+  --sorcery-accent-hover: #5f3e0e;
+  --sorcery-accent-subtle: #d2b981;
+  --sorcery-primary-surface: #d8bd85;
+  --sorcery-primary-surface-hover: #cdae6f;
+
+  --sorcery-success: #456b3a;
+  --sorcery-success-text: #365d2d;
+  --sorcery-success-surface: #c9d2ac;
+  --sorcery-success-border: #71835b;
+  --sorcery-success-border-subtle: #77875f;
+  --sorcery-success-text-strong: #274720;
+  --sorcery-success-text-notice: #315228;
+
+  --sorcery-warning: #8b5e16;
+  --sorcery-warning-surface: #dfc995;
+  --sorcery-warning-border: #a17c3f;
+  --sorcery-warning-border-strong: #8b6833;
+
+  --sorcery-danger: #934b3d;
+  --sorcery-danger-text: #7e3d32;
+  --sorcery-danger-surface: #dfb5a0;
+  --sorcery-danger-border: #a46455;
+  --sorcery-danger-text-strong: #632c24;
+  --sorcery-danger-text-notice: #71352b;
+  --sorcery-danger-border-strong: #94574a;
+  --sorcery-danger-row: #e0b6a3;
+
+  --sorcery-info: #426884;
+  --sorcery-focus: #6e4a12;
+  --sorcery-backdrop: rgb(39 28 14 / 0.52);
+  --sorcery-backdrop-strong: rgb(39 28 14 / 0.76);
+  --sorcery-shadow-color: rgb(55 38 16 / 0.28);
+  --sorcery-shadow-color-strong: rgb(55 38 16 / 0.40);
+  --sorcery-toast-bg: #3c3021;
+  --sorcery-toast-border: #725d3f;
+}
