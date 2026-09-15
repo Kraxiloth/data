@@ -1,1 +1,48 @@
+/* Sorcery.no design tokens - v1
+ * Stable, theme-independent values shared by Sorcery.no tools.
+ */
+:root {
+  color-scheme: dark;
 
+  --sorcery-font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sorcery-font-display: Georgia, "Times New Roman", serif;
+  --sorcery-font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  --sorcery-font-size-xs: 0.75rem;
+  --sorcery-font-size-sm: 0.8125rem;
+  --sorcery-font-size-md: 0.9375rem;
+  --sorcery-font-size-lg: 1.0625rem;
+  --sorcery-font-size-xl: 1.375rem;
+
+  --sorcery-line-height: 1.45;
+  --sorcery-letter-spacing-label: 0.06em;
+
+  --sorcery-space-2xs: 0.25rem;
+  --sorcery-space-xs: 0.5rem;
+  --sorcery-space-sm: 0.75rem;
+  --sorcery-space-md: 1rem;
+  --sorcery-space-lg: 1.5rem;
+  --sorcery-space-xl: 2rem;
+  --sorcery-space-2xl: 3rem;
+
+  --sorcery-radius-sm: 0.4375rem;
+  --sorcery-radius-md: 0.625rem;
+  --sorcery-radius-lg: 1rem;
+  --sorcery-radius-pill: 999px;
+
+  --sorcery-border-width: 1px;
+  --sorcery-control-height: 2.375rem;
+  --sorcery-content-width: 1450px;
+
+  --sorcery-shadow-sm: 0 12px 35px rgb(0 0 0 / 0.53);
+  --sorcery-shadow-md: 0 16px 45px rgb(0 0 0 / 0.73);
+  --sorcery-shadow-lg: 0 20px 80px rgb(0 0 0 / 0.53);
+
+  --sorcery-transition-fast: 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sorcery-transition-fast: 0ms;
+  }
+}
