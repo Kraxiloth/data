@@ -1,1 +1,76 @@
+/* Sorcery.no shared browser defaults - v1
+ * Kept deliberately small. Application layout belongs to each tool.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
+html {
+  background: var(--sorcery-bg);
+  color: var(--sorcery-text);
+  font-family: var(--sorcery-font-sans);
+  line-height: var(--sorcery-line-height);
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--sorcery-bg);
+  color: var(--sorcery-text);
+}
+
+:where(button, input, select, textarea) {
+  color: inherit;
+  font: inherit;
+}
+
+:where(button, select, input, textarea) {
+  background: var(--sorcery-surface-raised);
+  border: var(--sorcery-border-width) solid var(--sorcery-border);
+  border-radius: var(--sorcery-radius-sm);
+}
+
+:where(button, summary, select, input, textarea, a):focus-visible {
+  outline: 2px solid var(--sorcery-focus);
+  outline-offset: 2px;
+}
+
+:where(button:not(:disabled), select:not(:disabled), summary) {
+  cursor: pointer;
+}
+
+:where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+:where(a) {
+  color: var(--sorcery-accent);
+  text-underline-offset: 0.16em;
+}
+
+:where(a:hover) {
+  color: var(--sorcery-accent-hover);
+}
+
+:where(img, svg, canvas) {
+  max-width: 100%;
+}
+
+::selection {
+  background: var(--sorcery-accent);
+  color: var(--sorcery-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
