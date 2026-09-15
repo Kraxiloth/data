@@ -10,12 +10,15 @@
   --sorcery-surface-hover: #1e2125;
   --sorcery-surface-active: #27241e;
   --sorcery-surface-selected: #24282e;
+  --sorcery-surface-emphasis: #252a30;
+  --sorcery-surface-inset: #0f1113;
   --sorcery-header-bg: rgb(18 20 22 / 0.95);
 
   --sorcery-text: #eee8dc;
   --sorcery-text-muted: #aaa49a;
   --sorcery-text-subtle: #777;
   --sorcery-text-accent: #f3dfb7;
+  --sorcery-text-secondary: #d8d1c4;
 
   --sorcery-border: #34383e;
   --sorcery-border-subtle: #2b2e33;
@@ -25,6 +28,8 @@
   --sorcery-accent: #c6a15b;
   --sorcery-accent-hover: #d2b36f;
   --sorcery-accent-subtle: #27241e;
+  --sorcery-primary-surface: #29251e;
+  --sorcery-primary-surface-hover: #332d22;
 
   --sorcery-success: #77ad78;
   --sorcery-success-text: #9cc49d;
@@ -32,6 +37,7 @@
   --sorcery-success-border: #6d916d;
   --sorcery-success-border-subtle: #426348;
   --sorcery-success-text-strong: #dcebdc;
+  --sorcery-success-text-notice: #c5dfc6;
 
   --sorcery-warning: #d2a34a;
   --sorcery-warning-surface: #1b1d1f;
@@ -43,6 +49,9 @@
   --sorcery-danger-surface: #342222;
   --sorcery-danger-border: #9a6262;
   --sorcery-danger-text-strong: #f0d6d6;
+  --sorcery-danger-text-notice: #ecc0c0;
+  --sorcery-danger-border-strong: #704646;
+  --sorcery-danger-row: #2a1d1d;
 
   --sorcery-info: #7899bd;
   --sorcery-focus: #d7b66d;
@@ -50,4 +59,6 @@
   --sorcery-backdrop-strong: rgb(0 0 0 / 0.87);
   --sorcery-shadow-color: rgb(0 0 0 / 0.53);
   --sorcery-shadow-color-strong: rgb(0 0 0 / 0.73);
+  --sorcery-toast-bg: #292d32;
+  --sorcery-toast-border: #555b62;
 }
