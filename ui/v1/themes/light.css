@@ -1,0 +1,63 @@
+/* Sorcery.no light theme - v1 */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --sorcery-bg: #f4f1ea;
+  --sorcery-surface: #fffdf8;
+  --sorcery-surface-raised: #f3eee5;
+  --sorcery-surface-subtle: #f8f5ef;
+  --sorcery-surface-hover: #eee8de;
+  --sorcery-surface-active: #eee3cc;
+  --sorcery-surface-selected: #e7e1d6;
+  --sorcery-surface-emphasis: #e4ded4;
+  --sorcery-surface-inset: #ebe6dc;
+  --sorcery-header-bg: rgb(255 253 248 / 0.95);
+
+  --sorcery-text: #25231f;
+  --sorcery-text-muted: #69645b;
+  --sorcery-text-subtle: #777168;
+  --sorcery-text-accent: #654b18;
+  --sorcery-text-secondary: #4f4a42;
+
+  --sorcery-border: #c9c1b5;
+  --sorcery-border-subtle: #ddd6cb;
+  --sorcery-border-hover: #777168;
+  --sorcery-border-accent: #9a7838;
+
+  --sorcery-accent: #88651f;
+  --sorcery-accent-hover: #6f5018;
+  --sorcery-accent-subtle: #eee3cc;
+  --sorcery-primary-surface: #efe3c9;
+  --sorcery-primary-surface-hover: #e5d5b4;
+
+  --sorcery-success: #397542;
+  --sorcery-success-text: #2f6938;
+  --sorcery-success-surface: #e6f1e6;
+  --sorcery-success-border: #6f9874;
+  --sorcery-success-border-subtle: #83a887;
+  --sorcery-success-text-strong: #234e29;
+  --sorcery-success-text-notice: #285e31;
+
+  --sorcery-warning: #956c1d;
+  --sorcery-warning-surface: #fbf3df;
+  --sorcery-warning-border: #b99a5e;
+  --sorcery-warning-border-strong: #9e7a3c;
+
+  --sorcery-danger: #a5484d;
+  --sorcery-danger-text: #913b40;
+  --sorcery-danger-surface: #f8e7e7;
+  --sorcery-danger-border: #bd777a;
+  --sorcery-danger-text-strong: #742e32;
+  --sorcery-danger-text-notice: #7f3438;
+  --sorcery-danger-border-strong: #ad686c;
+  --sorcery-danger-row: #faeaea;
+
+  --sorcery-info: #376f9f;
+  --sorcery-focus: #8b651b;
+  --sorcery-backdrop: rgb(24 22 18 / 0.48);
+  --sorcery-backdrop-strong: rgb(24 22 18 / 0.72);
+  --sorcery-shadow-color: rgb(42 36 26 / 0.20);
+  --sorcery-shadow-color-strong: rgb(42 36 26 / 0.30);
+  --sorcery-toast-bg: #34312c;
+  --sorcery-toast-border: #5e5951;
+}
