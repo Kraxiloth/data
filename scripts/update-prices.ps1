@@ -35,13 +35,13 @@ function Normalize-Finish([string]$Name) {
 }
 
 function Get-ProductFinish([string]$Name) {
-    if ($Name -match '(?:\s|\()(rainbow foil)\)?\s*$') { return "rainbow" }
-    if ($Name -match '(?:\s|\()foil\)?\s*$') { return "foil" }
+    if ($Name -match '\(rainbow foil\)|\s+rainbow foil\s*$') { return "rainbow" }
+    if ($Name -match '\(foil\)|\s+foil\s*$') { return "foil" }
     return "standard"
 }
 
 function Get-NameCandidates([string]$Name) {
-    $value = ($Name -replace '\s*\((?:rainbow foil|foil)\)\s*$', '')
+    $value = ($Name -replace '\s*\((?:rainbow foil|foil)\)', '')
     $value = ($value -replace '\s+(?:rainbow foil|foil)\s*$', '').Trim()
     # Keep artwork qualifiers first so explicit token aliases take precedence.
     $withoutParentheses = ($value -replace '\s*\([^)]*\)', '').Trim()
@@ -244,9 +244,14 @@ $missingPrintings = @(
     }
 )
 $summary = [ordered]@{ productsFetched = $products.Count; pricedPrintings = $prices.Count; canonicalPrintingsWithoutPrice = $missingPrintings.Count }
-foreach ($group in ($productReport | Group-Object reason)) {
-    $summary[$group.Name] = $group.Count
-    Write-Host "$($group.Name): $($group.Count) products"
+# Dictionary entries require key lookup rather than property grouping in Windows PowerShell.
+foreach ($entry in $productReport) {
+    $reasonKey = [string]$entry["reason"]
+    if (-not $summary.Contains($reasonKey)) { $summary[$reasonKey] = 0 }
+    $summary[$reasonKey]++
+}
+foreach ($reasonKey in @($summary.Keys)) {
+    Write-Host "${reasonKey}: $($summary[$reasonKey])"
 }
 $report = [ordered]@{
     schemaVersion = 1; generatedAt = [DateTime]::UtcNow.ToString("o")
