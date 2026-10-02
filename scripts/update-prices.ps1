@@ -44,8 +44,10 @@ function Get-NameCandidates([string]$Name) {
     $value = ($Name -replace '\s*\((?:rainbow foil|foil)\)', '')
     $value = ($value -replace '\s+(?:rainbow foil|foil)\s*$', '').Trim()
     # Keep artwork qualifiers first so explicit token aliases take precedence.
+    $withoutProduct = ($value -replace '\s*\(box topper\)', '').Trim()
+    $numberedToken = $withoutProduct -replace '^Foot Soldier \(([123])\)$', 'Foot Soldier $1'
     $withoutParentheses = ($value -replace '\s*\([^)]*\)', '').Trim()
-    return @(Normalize-CardName $value; Normalize-CardName $withoutParentheses) |
+    return @(Normalize-CardName $value; Normalize-CardName $withoutProduct; Normalize-CardName $numberedToken; Normalize-CardName $withoutParentheses) |
         Where-Object { $_ } | Select-Object -Unique
 }
 
@@ -110,12 +112,16 @@ if (-not $cards -or $cards.Count -eq 0) {
 }
 
 $printingIndex = @{}
+$nameIndex = @{}
+$printingBySlug = @{}
 foreach ($card in $cards) {
     $name = Normalize-CardName $card.name
     foreach ($printing in $card.printings) {
         $setName = Normalize-SetName $printing.set.name
         $finish = Normalize-Finish $printing.meta.finish
         Add-PrintingKey "$name|$setName|$finish" $printing.slug
+        $printingBySlug[$printing.slug] = $printing
+        $nameIndex[$name] = @(@($nameIndex[$name]) + $printing.slug | Where-Object { $_ } | Select-Object -Unique)
     }
 }
 
@@ -144,7 +150,54 @@ foreach ($entry in $tokenAliases.GetEnumerator()) {
         $setName = Normalize-SetName $printing.set.name
         $finish = Normalize-Finish $printing.meta.finish
         Add-PrintingKey "$(Normalize-CardName $entry.Value)|$setName|$finish" $entry.Key
+        $aliasName = Normalize-CardName $entry.Value
+        $nameIndex[$aliasName] = @(@($nameIndex[$aliasName]) + $entry.Key | Where-Object { $_ } | Select-Object -Unique)
     }
+}
+
+function Resolve-Product([string]$Name, [string]$SetName, [string]$Finish) {
+    $type = $null
+    $promo = $false
+    $explicitFinish = $Name -match '\((?:rainbow foil|foil)\)|\s+(?:rainbow foil|foil)\s*$'
+    if ($Name -match 'box topper') { $type = "BoxTopper" }
+    elseif ($Name -match 'draft kit') { $type = "DraftKit"; $promo = $true }
+    elseif ($Name -match 'pledge pack') { $type = "Kickstarter"; $promo = $true }
+    elseif ($Name -match 'alpha investments?') { $type = "AlphaInvestments"; $promo = $true }
+    elseif ($Name -match 'team covenant') { $type = "TeamCovenant"; $promo = $true }
+    elseif ($Name -match 'star city|scgcon') { $type = "StarCityGames"; $promo = $true }
+    elseif ($Name -match 'store.*promo') { $type = "OrganizedPlay"; $promo = $true }
+    elseif ($SetName -eq 'dust reward promos') { $type = "Dust"; $promo = $true }
+    elseif ($SetName -eq 'welcome kit promos') { $type = "WelcomeKit"; $promo = $true }
+    elseif ($Name -match 'preconstructed') { $type = "PreconstructedDeck" }
+
+    # Unknown qualifiers may represent distinct art, misprints, or promo editions.
+    # Do not erase them and accidentally use an ordinary booster price.
+    $remaining = $Name -replace '\((?:rainbow foil|foil|box topper|draft kit|pledge pack|alpha investments? promo|team covenant(?: promo)?|star city game(?:s)? promo|scgcon promo|store[^)]*promo|corrected)\)', ''
+    $unsupported = $remaining -match '\([^)]*\)' -and -not $type
+    $all = @()
+    foreach ($candidate in (Get-NameCandidates $Name)) {
+        $found = @($nameIndex[$candidate] | Where-Object { $_ })
+        if ($found.Count -gt 0) { $all = $found; break }
+    }
+    if ($all.Count -eq 0) { return @{ reason = "name-mismatch"; slugs = @() } }
+    if ($unsupported) { return @{ reason = "unsupported-product-qualifier"; slugs = $all } }
+    if ($promo) { $SetName = "promo" }
+    $setMatches = @($all | Where-Object { (Normalize-SetName $printingBySlug[$_].set.name) -eq $SetName })
+    if ($setMatches.Count -eq 0) { return @{ reason = "set-mismatch"; slugs = $all } }
+    if ($type) {
+        $setMatches = @($setMatches | Where-Object { $printingBySlug[$_].meta.product -eq $type })
+    } else {
+        # Unqualified main-set products refer to booster printings when available.
+        $boosters = @($setMatches | Where-Object { $printingBySlug[$_].meta.product -eq "Booster" })
+        if ($boosters.Count -gt 0) { $setMatches = $boosters }
+    }
+    if ($setMatches.Count -eq 0) { return @{ reason = "product-type-mismatch"; slugs = $all } }
+    $finished = @($setMatches | Where-Object { (Normalize-Finish $printingBySlug[$_].meta.finish) -eq $Finish })
+    # Some promo listings omit Foil; infer it only when one printing remains.
+    if ($finished.Count -eq 0 -and $promo -and -not $explicitFinish -and $setMatches.Count -eq 1) { $finished = $setMatches }
+    if ($finished.Count -eq 0) { return @{ reason = "finish-mismatch"; slugs = $setMatches } }
+    if ($finished.Count -gt 1) { return @{ reason = "ambiguous-canonical-match"; slugs = $finished } }
+    return @{ reason = "resolved"; slugs = $finished; slug = $finished[0] }
 }
 
 Write-Host "Fetching TCGPlayer products..."
@@ -167,6 +220,7 @@ $prices = @{}
 $productReport = New-Object 'System.Collections.Generic.List[object]'
 $seenSlugs = @{}
 $unmatched = 0
+$seenProductIds = @{}
 foreach ($product in $products) {
     $rawName = [string]$product.productName
     $setName = [string]$product.setName
@@ -177,16 +231,18 @@ foreach ($product in $products) {
     $possibleSlugs = @()
     $reason = $null
 
-    if (-not $rawName -or -not $setName) {
+    $productKey = [string]$product.productId
+    if ($productKey -and $seenProductIds.ContainsKey($productKey)) {
+        $reason = "repeated-product-id"
+    } elseif (-not $rawName -or -not $setName) {
         $reason = "missing-product-fields"
-    } elseif ($rawName -match '(?i)\bbooster (?:box|pack)\b|\bpreconstructed deck(?:s| box)?\b') {
+    } elseif ($rawName -match '(?i)\bbooster (?:box|pack|case)\b|\bpreconstructed deck(?:s| box)?\b|^Dragonlord Box$|^Sorcery: Contested Realm - Pledge Pack$') {
         $reason = "non-card-product"
     } else {
-        foreach ($candidate in $candidates) {
-            $possibleSlugs = @($printingIndex["$candidate|$normalizedSet|$finish"] | Where-Object { $_ })
-            if ($possibleSlugs.Count -eq 1) { $slug = $possibleSlugs[0]; break }
-            if ($possibleSlugs.Count -gt 1) { $reason = "ambiguous-canonical-match"; break }
-        }
+        $resolution = Resolve-Product $rawName $normalizedSet $finish
+        $possibleSlugs = @($resolution.slugs)
+        $slug = $resolution.slug
+        if (-not $slug) { $reason = $resolution.reason }
         if ($slug) {
             if (-not $seenSlugs.ContainsKey($slug)) { $seenSlugs[$slug] = @() }
             $seenSlugs[$slug] += $product.productId
@@ -205,22 +261,16 @@ foreach ($product in $products) {
                 $prices[$slug] = @{ market = $market; low = $product.lowestPrice }
                 $reason = "matched"
             }
-        } elseif (-not $reason) {
-            $nameKeys = @($printingIndex.Keys | Where-Object { ($_.Split('|')[0]) -in $candidates })
-            $setKeys = @($nameKeys | Where-Object { ($_.Split('|')[1]) -eq $normalizedSet })
-            if ($nameKeys.Count -eq 0) { $reason = "name-mismatch" }
-            elseif ($setKeys.Count -eq 0) { $reason = "set-mismatch" }
-            else { $reason = "finish-mismatch" }
-            $possibleSlugs = @($nameKeys | ForEach-Object { $printingIndex[$_] } | Select-Object -Unique)
         }
     }
+    if ($productKey -and $reason -ne "repeated-product-id") { $seenProductIds[$productKey] = $true }
     $productReport.Add([ordered]@{
         productId = $product.productId; productName = $rawName; setName = $setName
         finish = $finish; marketPrice = $product.marketPrice; lowestPrice = $product.lowestPrice
         reason = $reason; matchedSlug = $slug; candidateNames = $candidates
         possibleCanonicalSlugs = $possibleSlugs
     })
-    if ($reason -notin @("matched", "non-card-product")) {
+    if ($reason -notin @("matched", "non-card-product", "repeated-product-id")) {
         $unmatched++
         # Full details for every product are retained in the JSON report.
         if ($unmatched -le 20 -or $rawName -match '^Band of Thieves(?:\s|$)') {
@@ -243,7 +293,7 @@ $missingPrintings = @(
         }
     }
 )
-$summary = [ordered]@{ productsFetched = $products.Count; pricedPrintings = $prices.Count; canonicalPrintingsWithoutPrice = $missingPrintings.Count }
+$summary = [ordered]@{ productsFetched = $products.Count; uniqueProductIds = $seenProductIds.Count; pricedPrintings = $prices.Count; canonicalPrintingsWithoutPrice = $missingPrintings.Count }
 # Dictionary entries require key lookup rather than property grouping in Windows PowerShell.
 foreach ($entry in $productReport) {
     $reasonKey = [string]$entry["reason"]
@@ -252,6 +302,9 @@ foreach ($entry in $productReport) {
 }
 foreach ($reasonKey in @($summary.Keys)) {
     Write-Host "${reasonKey}: $($summary[$reasonKey])"
+}
+if ($summary.Contains("repeated-product-id")) {
+    Write-Warning "Pagination returned $($summary['repeated-product-id']) repeated product IDs. $($seenProductIds.Count) unique IDs were received; repeated rows do not prove complete catalogue coverage."
 }
 $report = [ordered]@{
     schemaVersion = 1; generatedAt = [DateTime]::UtcNow.ToString("o")
