@@ -3,35 +3,56 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $CardsPath = Join-Path $RepoRoot "cards.json"
 $PricesPath = Join-Path $RepoRoot "prices.json"
+$ReportPath = Join-Path $RepoRoot "price-match-report.json"
 $ApiUrl = "https://mp-search-api.tcgplayer.com/v1/search/request"
 $PageSize = 50
 
+# Use the same comparison form on both sources; keep original display names.
+function Normalize-CardName([string]$Name) {
+    if ([string]::IsNullOrWhiteSpace($Name)) { return "" }
+    $builder = New-Object Text.StringBuilder
+    foreach ($character in $Name.Normalize([Text.NormalizationForm]::FormD).ToCharArray()) {
+        $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($character)
+        if ($category -notin @(
+            [Globalization.UnicodeCategory]::NonSpacingMark,
+            [Globalization.UnicodeCategory]::SpacingCombiningMark,
+            [Globalization.UnicodeCategory]::EnclosingMark
+        )) { [void]$builder.Append($character) }
+    }
+    return (($builder.ToString().Normalize([Text.NormalizationForm]::FormC) -replace '\s+', ' ').Trim().ToLowerInvariant())
+}
+
 function Normalize-SetName([string]$Name) {
-    $value = $Name.Trim().ToLowerInvariant()
+    $value = Normalize-CardName $Name
     if ($value -eq "promotional") { return "promo" }
     return $value
 }
 
 function Normalize-Finish([string]$Name) {
-    $value = $Name.Trim().ToLowerInvariant()
+    $value = Normalize-CardName $Name
     if ($value -eq "rainbow foil") { return "rainbow" }
     return $value
 }
 
 function Get-ProductFinish([string]$Name) {
-    $value = $Name.ToLowerInvariant()
-    if ($value.Contains("rainbow foil")) { return "rainbow" }
-    if ($value.Contains("foil")) { return "foil" }
+    if ($Name -match '(?:\s|\()(rainbow foil)\)?\s*$') { return "rainbow" }
+    if ($Name -match '(?:\s|\()foil\)?\s*$') { return "foil" }
     return "standard"
 }
 
 function Get-NameCandidates([string]$Name) {
-    $withoutFinish = ($Name -replace '\s*(rainbow foil|foil)\s*$', '').Trim()
-    $withoutParentheses = ($withoutFinish -replace '\s*\([^)]*\)', '').Trim()
-    return @(
-        $withoutFinish.ToLowerInvariant(),
-        $withoutParentheses.ToLowerInvariant()
-    ) | Select-Object -Unique
+    $value = ($Name -replace '\s*\((?:rainbow foil|foil)\)\s*$', '')
+    $value = ($value -replace '\s+(?:rainbow foil|foil)\s*$', '').Trim()
+    # Keep artwork qualifiers first so explicit token aliases take precedence.
+    $withoutParentheses = ($value -replace '\s*\([^)]*\)', '').Trim()
+    return @(Normalize-CardName $value; Normalize-CardName $withoutParentheses) |
+        Where-Object { $_ } | Select-Object -Unique
+}
+
+function Add-PrintingKey([string]$Key, [string]$Slug) {
+    # Never silently overwrite different printings with the same comparison key.
+    $printingIndex[$Key] = @(@($printingIndex[$Key]) + $Slug |
+        Where-Object { $_ } | Select-Object -Unique)
 }
 
 function New-RequestBody([int]$Offset) {
@@ -90,11 +111,11 @@ if (-not $cards -or $cards.Count -eq 0) {
 
 $printingIndex = @{}
 foreach ($card in $cards) {
-    $name = $card.name.Trim().ToLowerInvariant()
+    $name = Normalize-CardName $card.name
     foreach ($printing in $card.printings) {
         $setName = Normalize-SetName $printing.set.name
         $finish = Normalize-Finish $printing.meta.finish
-        $printingIndex["$name|$setName|$finish"] = $printing.slug
+        Add-PrintingKey "$name|$setName|$finish" $printing.slug
     }
 }
 
@@ -122,7 +143,7 @@ foreach ($entry in $tokenAliases.GetEnumerator()) {
     if ($printing) {
         $setName = Normalize-SetName $printing.set.name
         $finish = Normalize-Finish $printing.meta.finish
-        $printingIndex["$($entry.Value)|$setName|$finish"] = $entry.Key
+        Add-PrintingKey "$(Normalize-CardName $entry.Value)|$setName|$finish" $entry.Key
     }
 }
 
@@ -143,29 +164,96 @@ if ($products.Count -lt $total) {
 }
 
 $prices = @{}
+$productReport = New-Object 'System.Collections.Generic.List[object]'
+$seenSlugs = @{}
 $unmatched = 0
 foreach ($product in $products) {
     $rawName = [string]$product.productName
     $setName = [string]$product.setName
-    if (-not $rawName -or -not $setName -or $null -eq $product.marketPrice) { continue }
-
     $normalizedSet = Normalize-SetName $setName
     $finish = Get-ProductFinish $rawName
+    $candidates = @(Get-NameCandidates $rawName)
     $slug = $null
-    foreach ($candidate in (Get-NameCandidates $rawName)) {
-        $slug = $printingIndex["$candidate|$normalizedSet|$finish"]
-        if ($slug) { break }
-    }
+    $possibleSlugs = @()
+    $reason = $null
 
-    if (-not $slug) {
-        $unmatched++
-        if ($unmatched -le 20) {
-            Write-Warning "Unmatched: $rawName [$setName, $finish]"
+    if (-not $rawName -or -not $setName) {
+        $reason = "missing-product-fields"
+    } elseif ($rawName -match '(?i)\bbooster (?:box|pack)\b|\bpreconstructed deck(?:s| box)?\b') {
+        $reason = "non-card-product"
+    } else {
+        foreach ($candidate in $candidates) {
+            $possibleSlugs = @($printingIndex["$candidate|$normalizedSet|$finish"] | Where-Object { $_ })
+            if ($possibleSlugs.Count -eq 1) { $slug = $possibleSlugs[0]; break }
+            if ($possibleSlugs.Count -gt 1) { $reason = "ambiguous-canonical-match"; break }
         }
-        continue
+        if ($slug) {
+            if (-not $seenSlugs.ContainsKey($slug)) { $seenSlugs[$slug] = @() }
+            $seenSlugs[$slug] += $product.productId
+            $market = 0.0
+            $validPrice = $null -ne $product.marketPrice -and
+                [double]::TryParse([string]$product.marketPrice,
+                    [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture, [ref]$market) -and
+                -not [double]::IsNaN($market) -and -not [double]::IsInfinity($market) -and $market -ge 0
+            if (-not $validPrice) {
+                $reason = "missing-or-invalid-market-price"
+            } elseif ($prices.ContainsKey($slug)) {
+                # Keep the first price consistently; expose duplicate products for review.
+                $reason = "duplicate-priced-printing"
+            } else {
+                $prices[$slug] = @{ market = $market; low = $product.lowestPrice }
+                $reason = "matched"
+            }
+        } elseif (-not $reason) {
+            $nameKeys = @($printingIndex.Keys | Where-Object { ($_.Split('|')[0]) -in $candidates })
+            $setKeys = @($nameKeys | Where-Object { ($_.Split('|')[1]) -eq $normalizedSet })
+            if ($nameKeys.Count -eq 0) { $reason = "name-mismatch" }
+            elseif ($setKeys.Count -eq 0) { $reason = "set-mismatch" }
+            else { $reason = "finish-mismatch" }
+            $possibleSlugs = @($nameKeys | ForEach-Object { $printingIndex[$_] } | Select-Object -Unique)
+        }
     }
-    $prices[$slug] = @{ market = $product.marketPrice; low = $product.lowestPrice }
+    $productReport.Add([ordered]@{
+        productId = $product.productId; productName = $rawName; setName = $setName
+        finish = $finish; marketPrice = $product.marketPrice; lowestPrice = $product.lowestPrice
+        reason = $reason; matchedSlug = $slug; candidateNames = $candidates
+        possibleCanonicalSlugs = $possibleSlugs
+    })
+    if ($reason -notin @("matched", "non-card-product")) {
+        $unmatched++
+        # Full details for every product are retained in the JSON report.
+        if ($unmatched -le 20 -or $rawName -match '^Band of Thieves(?:\s|$)') {
+            Write-Warning "${reason}: $rawName [$setName, $finish]"
+        }
+    }
 }
+
+$missingPrintings = @(
+    foreach ($card in $cards) {
+        foreach ($printing in $card.printings) {
+            if (-not $prices.ContainsKey($printing.slug)) {
+                [ordered]@{
+                    cardName = $card.name; cardSlug = $card.slug; printingSlug = $printing.slug
+                    setName = $printing.set.name; finish = $printing.meta.finish
+                    reason = $(if ($seenSlugs.ContainsKey($printing.slug)) { "matched-product-without-valid-price" } else { "no-matched-product" })
+                    productIds = @($seenSlugs[$printing.slug] | Where-Object { $null -ne $_ })
+                }
+            }
+        }
+    }
+)
+$summary = [ordered]@{ productsFetched = $products.Count; pricedPrintings = $prices.Count; canonicalPrintingsWithoutPrice = $missingPrintings.Count }
+foreach ($group in ($productReport | Group-Object reason)) {
+    $summary[$group.Name] = $group.Count
+    Write-Host "$($group.Name): $($group.Count) products"
+}
+$report = [ordered]@{
+    schemaVersion = 1; generatedAt = [DateTime]::UtcNow.ToString("o")
+    summary = $summary; products = @($productReport.ToArray()); canonicalPrintingsWithoutPrice = $missingPrintings
+}
+[IO.File]::WriteAllText($ReportPath, (($report | ConvertTo-Json -Depth 12) + [Environment]::NewLine), (New-Object Text.UTF8Encoding $false))
+Write-Host "Canonical printings without price: $($missingPrintings.Count). Full diagnostics: $ReportPath"
 
 if ($prices.Count -eq 0) { throw "No prices were matched." }
 if (Test-Path $PricesPath) {
@@ -220,6 +308,6 @@ foreach ($card in $cards) {
     $pricedCards += $cardCopy
 }
 
-$json = ($pricedCards | ConvertTo-Json -Depth 12 -Compress) + [Environment]::NewLine
+$json = (ConvertTo-Json -InputObject @($pricedCards) -Depth 12 -Compress) + [Environment]::NewLine
 [IO.File]::WriteAllText($PricesPath, $json, (New-Object Text.UTF8Encoding $false))
 Write-Host "Published $($prices.Count) priced printings across $($pricedCards.Count) cards; $unmatched products unmatched."
