@@ -25,6 +25,15 @@ jobs:
         shell: powershell
         run: powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\update-prices.ps1"
 
+      - name: Upload price matching report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: price-match-report
+          path: price-match-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Update price history
         run: python scripts/update-price-history.py
 
